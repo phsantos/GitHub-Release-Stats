@@ -32,11 +32,12 @@ function setCache(url, data, etag) {
  * - 403/429 (rate limit) → usa último dado válido em cache
  * - Qualquer erro de rede → fallback para cache
  */
-export async function cachedFetch(url) {
+export async function cachedFetch(url, { force = false } = {}) {
   const cache = getCache(url);
   const headers = {};
 
-  if (cache?.etag) {
+  // Só envia ETag se NÃO for forçado
+  if (!force && cache?.etag) {
     headers["If-None-Match"] = cache.etag;
   }
 

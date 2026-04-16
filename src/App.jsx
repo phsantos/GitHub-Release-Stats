@@ -20,7 +20,7 @@ import { StatCard, ReleaseTable, Navbar, Badge } from "./components";
 import { cachedFetch, loadFromCache } from "./githubCache";
 
 const GITHUB_BASE_URL = "https://api.github.com/repos";
-const AUTO_REFRESH_INTERVAL = 600 * 60 * 1000; // 60 minutos
+const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutos
 const ITEMS_PER_PAGE = 25;
 
 export default function App() {
@@ -78,7 +78,7 @@ export default function App() {
       : "--:--:--";
 
   const fetchStats = useCallback(
-    async (isAuto = false) => {
+    async ({ isAuto = false, force = false } = {}) => {
       const cleanPath = repoInput
         .replace("https://github.com/", "")
         .replace(/\/$/, "");
@@ -92,12 +92,17 @@ export default function App() {
       setRateLimited(false);
 
       try {
+        const fetchOpts = { force };
         const [releasesResult, repoResult, latestResult] = await Promise.all([
-          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`),
-          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}`),
-          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}/releases/latest`).catch(
-            () => ({ data: null, fromCache: false, rateLimited: false }),
+          cachedFetch(
+            `${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`,
+            fetchOpts,
           ),
+          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}`, fetchOpts),
+          cachedFetch(
+            `${GITHUB_BASE_URL}/${cleanPath}/releases/latest`,
+            fetchOpts,
+          ).catch(() => ({ data: null, fromCache: false, rateLimited: false })),
         ]);
 
         const wasRateLimited =
@@ -125,7 +130,7 @@ export default function App() {
   useEffect(() => {
     fetchStats();
     const intervalId = setInterval(
-      () => fetchStats(true),
+      () => fetchStats({ isAuto: true }),
       AUTO_REFRESH_INTERVAL,
     );
     return () => clearInterval(intervalId);
@@ -201,7 +206,8 @@ export default function App() {
           <div className="mb-6 p-4 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl flex items-center gap-3">
             <AlertCircle size={20} />
             <p className="text-sm font-medium">
-              Limite da API do GitHub atingido. A mostrar dados em cache.
+              Limite de consultas atingido. Mostrando dados em cache (se
+              disponíveis). Tente novamente mais tarde.
             </p>
           </div>
         )}
@@ -252,7 +258,7 @@ export default function App() {
                   </span>
                 </div>
                 <button
-                  onClick={() => fetchStats()}
+                  onClick={() => fetchStats({ force: true })}
                   disabled={loading}
                   className="flex items-center gap-2 bg-white hover:bg-slate-50 text-indigo-600 px-4 py-2 rounded-xl border border-indigo-100 shadow-sm font-bold text-xs transition-all active:scale-95 disabled:opacity-50"
                 >
