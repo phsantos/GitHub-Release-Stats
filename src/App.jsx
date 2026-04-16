@@ -114,7 +114,11 @@ export default function App() {
         setData(releasesResult.data);
         setRepoInfo(repoResult.data);
         setLatestRelease(latestResult.data);
-        setLastUpdated(new Date());
+        setLastUpdated(
+          wasFromCache && releasesResult.timestamp
+            ? releasesResult.timestamp
+            : new Date(),
+        );
         setFromCache(wasFromCache);
         setRateLimited(wasRateLimited);
       } catch (err) {

@@ -41,31 +41,29 @@ export async function cachedFetch(url, { force = false } = {}) {
     headers["If-None-Match"] = cache.etag;
   }
 
+  const cachedResult = (rateLimited = false) => ({
+    data: cache.data,
+    fromCache: true,
+    rateLimited,
+    timestamp: cache.timestamp ? new Date(cache.timestamp) : null,
+  });
+
   let res;
   try {
     res = await fetch(url, { headers });
   } catch {
-    if (cache?.data) {
-      return { data: cache.data, fromCache: true, rateLimited: false };
-    }
+    if (cache?.data) return cachedResult();
     throw new Error("Erro de rede. Verifique a sua ligação.");
   }
 
-  // 304 Not Modified — dados não mudaram (não consome rate limit!)
-  if (res.status === 304 && cache?.data) {
-    return { data: cache.data, fromCache: true, rateLimited: false };
-  }
+  if (res.status === 304 && cache?.data) return cachedResult();
 
-  // Rate limited — fallback para último dado válido
   if ((res.status === 403 || res.status === 429) && cache?.data) {
-    return { data: cache.data, fromCache: true, rateLimited: true };
+    return cachedResult(true);
   }
 
-  // Outro erro — tenta fallback
   if (!res.ok) {
-    if (cache?.data) {
-      return { data: cache.data, fromCache: true, rateLimited: false };
-    }
+    if (cache?.data) return cachedResult();
     throw new Error(
       res.status === 403 || res.status === 429
         ? "Limite da API do GitHub atingido. Tente novamente mais tarde."
@@ -73,12 +71,11 @@ export async function cachedFetch(url, { force = false } = {}) {
     );
   }
 
-  // Sucesso — guarda em cache com ETag
   const data = await res.json();
   const etag = res.headers.get("etag");
   setCache(url, data, etag);
 
-  return { data, fromCache: false, rateLimited: false };
+  return { data, fromCache: false, rateLimited: false, timestamp: null };
 }
 
 /**
