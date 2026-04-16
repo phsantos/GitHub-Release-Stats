@@ -93,27 +93,32 @@ export default function App() {
 
       try {
         const fetchOpts = { force };
-        const [releasesResult, repoResult] = await Promise.all([
+        const [releasesResult, repoResult, latestResult] = await Promise.all([
           cachedFetch(
             `${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`,
             fetchOpts,
           ),
           cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}`, fetchOpts),
+          cachedFetch(
+            `${GITHUB_BASE_URL}/${cleanPath}/releases/latest`,
+            fetchOpts,
+          ).catch(() => ({
+            data: null,
+            fromCache: false,
+            rateLimited: false,
+            timestamp: null,
+          })),
         ]);
 
         const wasRateLimited =
-          releasesResult.rateLimited || repoResult.rateLimited;
+          releasesResult.rateLimited ||
+          repoResult.rateLimited ||
+          latestResult.rateLimited;
         const wasFromCache = releasesResult.fromCache && repoResult.fromCache;
-
-        // Derivar latest da lista (equivale ao /releases/latest)
-        const latestData =
-          releasesResult.data?.find((r) => !r.draft && !r.prerelease) ??
-          releasesResult.data?.[0] ??
-          null;
 
         setData(releasesResult.data);
         setRepoInfo(repoResult.data);
-        setLatestRelease(latestData);
+        setLatestRelease(latestResult.data);
         setLastUpdated(
           wasFromCache && releasesResult.timestamp
             ? releasesResult.timestamp
@@ -404,9 +409,9 @@ export default function App() {
                                 <span className="font-bold text-slate-700">
                                   {formatNumber(downloadCount)}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
+                                {/* <span className="text-[10px] text-slate-400">
                                   {release.assets.length} ficheiros
-                                </span>
+                                </span> */}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right">
