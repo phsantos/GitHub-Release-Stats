@@ -84,14 +84,18 @@ export async function cachedFetch(url, { force = false } = {}) {
 export function loadFromCache(repoPath, baseUrl) {
   const releases = getCache(`${baseUrl}/${repoPath}/releases?per_page=100`);
   const repo = getCache(`${baseUrl}/${repoPath}`);
-  const latest = getCache(`${baseUrl}/${repoPath}/releases/latest`);
 
   if (!releases?.data || !repo?.data) return null;
+
+  const latest =
+    releases.data.find((r) => !r.draft && !r.prerelease) ??
+    releases.data[0] ??
+    null;
 
   return {
     releases: releases.data,
     repo: repo.data,
-    latest: latest?.data ?? null,
+    latest,
     timestamp: releases.timestamp ? new Date(releases.timestamp) : null,
   };
 }

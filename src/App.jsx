@@ -93,27 +93,27 @@ export default function App() {
 
       try {
         const fetchOpts = { force };
-        const [releasesResult, repoResult, latestResult] = await Promise.all([
+        const [releasesResult, repoResult] = await Promise.all([
           cachedFetch(
             `${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`,
             fetchOpts,
           ),
           cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}`, fetchOpts),
-          cachedFetch(
-            `${GITHUB_BASE_URL}/${cleanPath}/releases/latest`,
-            fetchOpts,
-          ).catch(() => ({ data: null, fromCache: false, rateLimited: false })),
         ]);
 
         const wasRateLimited =
-          releasesResult.rateLimited ||
-          repoResult.rateLimited ||
-          latestResult.rateLimited;
+          releasesResult.rateLimited || repoResult.rateLimited;
         const wasFromCache = releasesResult.fromCache && repoResult.fromCache;
+
+        // Derivar latest da lista (equivale ao /releases/latest)
+        const latestData =
+          releasesResult.data?.find((r) => !r.draft && !r.prerelease) ??
+          releasesResult.data?.[0] ??
+          null;
 
         setData(releasesResult.data);
         setRepoInfo(repoResult.data);
-        setLatestRelease(latestResult.data);
+        setLatestRelease(latestData);
         setLastUpdated(
           wasFromCache && releasesResult.timestamp
             ? releasesResult.timestamp
