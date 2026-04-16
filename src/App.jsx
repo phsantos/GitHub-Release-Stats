@@ -17,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { StatCard, ReleaseTable, Navbar, Badge } from "./components";
+import { cachedFetch, loadFromCache } from "./githubCache";
 
 const GITHUB_BASE_URL = "https://api.github.com/repos";
 const AUTO_REFRESH_INTERVAL = 600 * 60 * 1000; // 60 minutos
@@ -32,10 +33,29 @@ export default function App() {
   const [repoInfo, setRepoInfo] = useState(null);
   const [latestRelease, setLatestRelease] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
 
   // Estados de Paginação e Busca
   const [tableSearch, setTableSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Carregar cache local no arranque (exibição imediata)
+  useEffect(() => {
+    const cleanPath = repoInput
+      .replace("https://github.com/", "")
+      .replace(/\/$/, "");
+    if (!cleanPath.includes("/")) return;
+
+    const cached = loadFromCache(cleanPath, GITHUB_BASE_URL);
+    if (cached) {
+      setData(cached.releases);
+      setRepoInfo(cached.repo);
+      setLatestRelease(cached.latest);
+      setLastUpdated(cached.timestamp);
+      setFromCache(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatNumber = (num) => new Intl.NumberFormat("pt-PT").format(num);
   const formatDate = (date) =>
@@ -69,28 +89,29 @@ export default function App() {
 
       if (!isAuto) setLoading(true);
       setError(null);
+      setRateLimited(false);
 
       try {
-        // GitHub API só permite per_page até 100 por chamada padrão.
-        const [releasesRes, repoRes, latestRes] = await Promise.all([
-          fetch(`${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`),
-          fetch(`${GITHUB_BASE_URL}/${cleanPath}`),
-          fetch(`${GITHUB_BASE_URL}/${cleanPath}/releases/latest`),
+        const [releasesResult, repoResult, latestResult] = await Promise.all([
+          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}/releases?per_page=100`),
+          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}`),
+          cachedFetch(`${GITHUB_BASE_URL}/${cleanPath}/releases/latest`).catch(
+            () => ({ data: null, fromCache: false, rateLimited: false }),
+          ),
         ]);
 
-        if (!releasesRes.ok || !repoRes.ok)
-          throw new Error(
-            "Repositório não encontrado ou limite da API atingido.",
-          );
+        const wasRateLimited =
+          releasesResult.rateLimited ||
+          repoResult.rateLimited ||
+          latestResult.rateLimited;
+        const wasFromCache = releasesResult.fromCache && repoResult.fromCache;
 
-        const releasesData = await releasesRes.json();
-        const repoData = await repoRes.json();
-        const latestData = latestRes.ok ? await latestRes.json() : null;
-
-        setData(releasesData);
-        setRepoInfo(repoData);
-        setLatestRelease(latestData);
+        setData(releasesResult.data);
+        setRepoInfo(repoResult.data);
+        setLatestRelease(latestResult.data);
         setLastUpdated(new Date());
+        setFromCache(wasFromCache);
+        setRateLimited(wasRateLimited);
       } catch (err) {
         if (!isAuto) setError(err.message);
         console.error("Erro na atualização:", err);
@@ -176,6 +197,15 @@ export default function App() {
           </div>
         )}
 
+        {rateLimited && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl flex items-center gap-3">
+            <AlertCircle size={20} />
+            <p className="text-sm font-medium">
+              Limite da API do GitHub atingido. A mostrar dados em cache.
+            </p>
+          </div>
+        )}
+
         {!data && loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="animate-spin text-indigo-600" size={40} />
@@ -218,6 +248,7 @@ export default function App() {
                   <Clock size={14} className="text-slate-400" />
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
                     Última Atualização: {formatTime(lastUpdated)}
+                    {fromCache && " (cache)"}
                   </span>
                 </div>
                 <button
@@ -411,7 +442,6 @@ export default function App() {
                   <div className="hidden sm:flex gap-1">
                     {[...Array(totalPages)].map((_, i) => {
                       const page = i + 1;
-                      // Mostrar apenas algumas páginas se houver muitas
                       if (
                         totalPages > 5 &&
                         Math.abs(page - currentPage) > 2 &&
