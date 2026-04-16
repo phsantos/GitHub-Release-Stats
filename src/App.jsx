@@ -19,7 +19,7 @@ import {
 import { StatCard, ReleaseTable, Navbar, Badge } from "./components";
 
 const GITHUB_BASE_URL = "https://api.github.com/repos";
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutos
+const AUTO_REFRESH_INTERVAL = 600 * 60 * 1000; // 60 minutos
 const ITEMS_PER_PAGE = 25;
 
 export default function App() {
@@ -180,7 +180,7 @@ export default function App() {
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="animate-spin text-indigo-600" size={40} />
             <p className="text-slate-400 text-sm font-medium">
-              A procurar dados no GitHub...
+              Obtendo dados...
             </p>
           </div>
         ) : data && repoInfo ? (
@@ -239,7 +239,7 @@ export default function App() {
               <StatCard
                 title="Total Downloads"
                 value={formatNumber(stats.total)}
-                sub="Acumulado de ficheiros"
+                sub="Acumulado"
                 icon={Download}
                 color="indigo"
               />
@@ -255,20 +255,20 @@ export default function App() {
                 color="emerald"
                 highlight
               />
-              <StatCard
-                title="Releases"
+              {/* <StatCard
+                title="Versões"
                 value={stats.count}
                 sub="Histórico detetado"
                 icon={Tag}
                 color="slate"
-              />
-              <StatCard
+              /> */}
+              {/* <StatCard
                 title="Estrelas"
                 value={formatNumber(repoInfo.stargazers_count)}
                 sub="Engagement GitHub"
                 icon={Zap}
                 color="amber"
-              />
+              /> */}
             </div>
 
             {/* Barra de Pesquisa da Tabela */}
@@ -296,7 +296,7 @@ export default function App() {
               </div>
 
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                {filteredAndSortedReleases.length} resultados encontrados
+                Últimas {filteredAndSortedReleases.length} versões encontradas
               </p>
             </div>
 
@@ -344,11 +344,13 @@ export default function App() {
                                 <div className="flex gap-1">
                                   {isLatest && (
                                     <Badge variant="success">
-                                      Latest Stable
+                                      ÚLTIMA VERSÃO
                                     </Badge>
                                   )}
                                   {release.prerelease && (
-                                    <Badge variant="warning">Pre-release</Badge>
+                                    <Badge variant="warning">
+                                      Pré-lançamento
+                                    </Badge>
                                   )}
                                 </div>
                               </div>
@@ -457,7 +459,7 @@ export default function App() {
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 </p>
                 <p className="leading-relaxed text-slate-500">
-                  Os resultados estão paginados de 50 em 50 para melhor
+                  Os resultados estão paginados de 25 em 25 para melhor
                   performance. Utilize o campo de pesquisa acima da tabela para
                   encontrar rapidamente uma versão específica sem precisar
                   navegar entre as páginas.
